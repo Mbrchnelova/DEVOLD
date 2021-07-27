@@ -15,6 +15,7 @@ outfile = str(sys.argv[2])
 bodytype = int(sys.argv[3])
 
 
+print("Using ", infile, " to produce ", outfile, " with a body type ", bodytype)
 if len(sys.argv) < 4:
 	print("You forgot some of the input arguments. Input file, output file and bodytype.")
 #print 'Number of arguments:', len(sys.argv), 'arguments.'
@@ -844,7 +845,7 @@ for line in lines:
 		READ_ZONE = True
 		READ_PNTS = False
 		zone_line = l
-		print zone_line, "zone_line"
+		#print zone_line, "zone_line"
 	if l == zone_line + 2:
 		line = line.split(",")
 		Ni = (line[0].split("="))[1]
@@ -852,7 +853,7 @@ for line in lines:
 		Nk = (line[2].split("="))[1]
 		sizes.append([Ni, Nj, Nk])
 		no_points_theory = no_points_theory + int(Ni) * int(Nj) * int(Nk)
-		print Ni, Nj, Nk
+		#print Ni, Nj, Nk
 	if l == zone_line + 5:
 		READ_PNTS = True
 	if READ_PNTS:
@@ -949,6 +950,9 @@ for z in range(0, no_zones):
 	for k in range(1, kmax+1):
 		for j in range(1, jmax+1):
 			for i in range(1, imax+1):
+
+				border_count = 0
+
 				#Determine the local zone index
 				idx = i + (j-1) * imax + (k-1) * jmax
 				idx = idx - 1
@@ -963,15 +967,15 @@ for z in range(0, no_zones):
 	
 				#If this point is on the border, save this information to borders
 				if i == 1:
-					borders.append(1)
-				elif i == imax:
-					borders.append(1)
-				elif j == 1:
-					borders.append(1)
-				elif j == jmax:
-					borders.append(1)
-				else:
-					borders.append(0)
+					border_count = border_count + 1	
+				if i == imax:
+					border_count = border_count + 1
+				if j == 1:
+					border_count = border_count + 1
+				if j == jmax:
+					border_count = border_count + 1
+				
+				borders.append(border_count)
 	
 
 	#Creating connectivity:
@@ -1068,7 +1072,7 @@ no_points = len(xs)
 border_points = []
 
 for i in range(0, no_points):
-	if borders[i] == 1:
+	if borders[i] > 0:
 		border_points.append([i, xs[i], ys[i], zs[i]])
 
 
@@ -1132,7 +1136,7 @@ for e in range(0, no_elements):
 		point = element[p]
 		
 		#If this point is a border point
-		if borders[point] == 1:
+		if borders[point] > 0:
 
 			#And if it is supposed to be possibly replaced
 			if len(identities[point]) > 1:
@@ -1144,8 +1148,13 @@ for e in range(0, no_elements):
 				if replace_idx != point:
 					replaced.append([point, replace_idx])
 					replaced_single.append(point)
-					borders[point] = 0
-					borders[replace_idx] = 0
+					if borders[point] == 1 and borders[replace_idx] == 1:
+						borders[point] = 0
+						borders[replace_idx] = 0
+
+
+
+
 					#element[p] = replace_idx
 					#elements_merged[e] = element
 				
@@ -1161,8 +1170,8 @@ print("No of replaced points: ", len(replaced_single))
 for i in range(0, no_points):
 	shift_count.append(-1)
 
-print("Min:")
-print min(replaced_single)
+#print("Min:")
+#print min(replaced_single)
 replacements = []
  
 for i in range(0, no_points):
@@ -1252,7 +1261,12 @@ for i in range(0, no_points):
 	#if borders_filtered[new_idx] != -1:
 	#	print borders_filtered[new_idx], borders[original_idx]
 
-	borders_filtered[new_idx] = borders[original_idx]
+	if borders[original_idx] == 0:
+		borders_filtered[new_idx] = 0
+	else:
+		borders_filtered[new_idx] = 1
+
+	#borders_filtered[new_idx] = borders[original_idx]
 
 #print("borders_filtered", borders_filtered)
 
@@ -1267,14 +1281,14 @@ outlet_minx = 5.9863
 upper_miny = 100.0
 lower_maxy = 0.000824
 
-
+print("Point 27914", borders_filtered[27913], xs_filtered[27913], ys_filtered[27913] )
 
 element_boundary_sides = []
 for e in range(0, no_elements):
 	element_boundary_sides.append([-1])
 
-print("no_points_filtered", no_points_filtered)
-print("borders filtered ", len(borders_filtered))
+print("No points filtered", no_points_filtered)
+print("Borders filtered ", len(borders_filtered))
 
 for e in range(0, no_elements):
 	element = elements_merged_corrected[e]
@@ -1461,8 +1475,12 @@ for e in range(0, no_elements):
 
 
 
+print("27484: ", element_boundary_sides[27483])
+print("43904: ", element_boundary_sides[43903])
+
+
 name = outfile #"converted_2.brch" 
-path = "/scratch/leuven/338/vsc33811/Lore/code/"
+path = "/scratch/leuven/338/vsc33811/Lore/dats/"
 #name = "sub1_5.brch"
 
 block_type = "Walpot"
@@ -1487,6 +1505,8 @@ for i in range(0, no_elements):
 	element = elements_merged_corrected[i]
 	elems_final.append([i, element[0], element[1], element[2], element[3]]) 
 
+
+count_three = 0
 for i in range(0, no_elements):
 	if element_boundary_sides[i] != [-1]: 
 	 	if len(element_boundary_sides[i]) == 2:	
@@ -1505,6 +1525,7 @@ for i in range(0, no_elements):
 
 
 		elif len(element_boundary_sides[i]) == 4:
+			count_three = count_three + 1
                         if element_boundary_sides[i][0] == "inlet":
                                 flag = 1
                         elif element_boundary_sides[i][0] == "outlet": 
@@ -1533,6 +1554,11 @@ for i in range(0, no_elements):
 
 		else:
 			print("PROBLEM")
+
+
+if count_three != 5:
+	print("Problem somewhere!") 
+		
 
 #print(elems_formatted[0])
 written = writeMesh(path, name, block_type, elems_final, nodes_final, boundaries_final, ngrps, nbsets, ndfcd, ndfvl)
